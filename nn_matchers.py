@@ -12,7 +12,164 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from numpy import linalg as LA
 from scipy.spatial import Delaunay
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors, KDTree
+
+from info3d import *
+
+def get_score_kdtree(obj_meta, pointcloud, triangles, descriptors, RANSAC = False, strict = False, old = False):
+    
+    # ROTATION
+    random_theta =  (2*np.pi)*np.random.random()# from [0, 2pi)
+    random_axis = np.random.choice(np.arange(0,3))
+    rotated_pointCloud = rotatePointCloud(pointcloud, random_theta, random_axis)
+
+    # TRANSLATION
+    t_pointCloud = np.asarray(rotated_pointCloud)
+    random_tx_axis = np.random.choice(np.arange(0,3))
+    random_translation = np.random.random()
+    t_pointCloud[:,random_tx_axis] = t_pointCloud[:,random_tx_axis] + random_translation
+
+    #t1 = time.time()
+    
+    #RANSAC
+    if RANSAC and not old:
+        # GETTING GENERALIZATION
+        gen_planes = getRansacPlanes(
+            t_pointCloud,
+            #triangles,
+            #strict = strict
+        )
+
+        t_pointCloud, t_triangles = getGeneralizedPointCloud(
+            planes = gen_planes,
+            #strict = strict
+        )
+        
+    #RANSAC old
+    if RANSAC and old:
+        # GETTING GENERALIZATION
+        gen_planes, gen_plane_properties = getRansacPlanesOld(
+            t_pointCloud,
+            triangles
+        )
+
+        t_pointCloud, t_triangles = getGeneralizedPointCloudOld(
+            planes = gen_planes,
+            plane_properties = gen_plane_properties
+        )
+
+    try:
+        p_descriptors, p_keypoints, p_d_c = getSpinImageDescriptors(
+            t_pointCloud,
+            down_resolution = 5,
+            cylindrical_quantization = [4,5]
+        )
+    except Exception as ex:
+        print("Error getting descriptors of",obj_meta[:2],len(t_pointCloud))
+        print("Error Message:",ex)
+        
+        return
+
+    # Resetting the diff_Ratio matrix
+    diff_scores = np.ones((p_descriptors.shape[0],len(descriptors),2))
+    diff_ratios = np.ones((p_descriptors.shape[0],len(descriptors)))
+    diff_indexs = np.ones((p_descriptors.shape[0],len(descriptors),2))
+
+    #print(diff_ratios.shape)
+    local_keypoint_matches = []
+
+    for i_r, ref_descriptor in enumerate(descriptors):
+
+        r_descriptors = ref_descriptor[1]
+        r_keypoints = ref_descriptor[2]
+
+        matching_range = np.arange(r_descriptors.shape[1])
+
+        try:    
+            tree = KDTree(r_descriptors, leaf_size = 2)
+            diff, f_nearestneighbor = tree.query(p_descriptors,k=2)
+            #print(p_descriptors.shape,r_descriptors.shape)
+            #print(diff.shape, f_nearestneighbor.shape)
+            diff = diff/np.amax(diff) # max-normalization of differences
+            diff_ratio = diff[:,0]/diff[:,1]
+            diff_ratios[:,i_r] = diff_ratio
+            diff_scores[:,i_r] = diff
+            diff_indexs[:,i_r] = f_nearestneighbor
+
+            # Taking note of the matched keypoints
+            local_keypoint_matches.append([
+                obj_meta,
+                p_keypoints,
+                r_keypoints[f_nearestneighbor[:,0]]
+            ])
+
+        except Exception as ex:
+            print("Error Matching:",ex)
+
+    return obj_meta, np.asarray(diff_ratios), np.asarray(diff_indexs), np.asarray(diff_scores), local_keypoint_matches
+
+def get_score_kdtree_lean(obj_meta, pointcloud, descriptors):
+    
+    # ROTATION
+    random_theta =  (2*np.pi)*np.random.random()# from [0, 2pi)
+    random_axis = np.random.choice(np.arange(0,3))
+    rotated_pointCloud = rotatePointCloud(pointcloud, random_theta, random_axis)
+
+    # TRANSLATION
+    t_pointCloud = np.asarray(rotated_pointCloud)
+    random_tx_axis = np.random.choice(np.arange(0,3))
+    random_translation = np.random.random()
+    t_pointCloud[:,random_tx_axis] = t_pointCloud[:,random_tx_axis] + random_translation
+
+    try:
+        p_descriptors, p_keypoints, p_d_c = getSpinImageDescriptors(
+            t_pointCloud,
+            down_resolution = 5,
+            cylindrical_quantization = [4,5]
+        )
+    except Exception as ex:
+        print("Error getting descriptors of",obj_meta[:2],len(t_pointCloud))
+        print("Error Message:",ex)
+        
+        return
+
+    # Resetting the diff_Ratio matrix
+    diff_scores = np.ones((p_descriptors.shape[0],len(descriptors),2))
+    diff_ratios = np.ones((p_descriptors.shape[0],len(descriptors)))
+    diff_indexs = np.ones((p_descriptors.shape[0],len(descriptors),2))
+
+    #print(diff_ratios.shape)
+    local_keypoint_matches = []
+
+    for i_r, ref_descriptor in enumerate(descriptors):
+
+        r_descriptors = ref_descriptor[1]
+        r_keypoints = ref_descriptor[2]
+
+        matching_range = np.arange(r_descriptors.shape[1])
+
+        try:    
+            tree = KDTree(r_descriptors, leaf_size = 2)
+            diff, f_nearestneighbor = tree.query(p_descriptors,k=2)
+            #print(p_descriptors.shape,r_descriptors.shape)
+            #print(diff.shape, f_nearestneighbor.shape)
+            diff = diff/np.amax(diff) # max-normalization of differences
+            diff_ratio = diff[:,0]/diff[:,1]
+            diff_ratios[:,i_r] = diff_ratio
+            diff_scores[:,i_r] = diff
+            diff_indexs[:,i_r] = f_nearestneighbor
+
+            # Taking note of the matched keypoints
+            local_keypoint_matches.append([
+                obj_meta,
+                p_keypoints,
+                r_keypoints[f_nearestneighbor[:,0]]
+            ])
+
+        except Exception as ex:
+            print("Error Matching:",ex)
+
+    return obj_meta, np.asarray(diff_ratios), np.asarray(diff_indexs), np.asarray(diff_scores), local_keypoint_matches
 
 def getRankedErrors_withKeypointMatches(_scores, rank = 1):
     
@@ -71,11 +228,11 @@ def NN_matcher(partial_scores):
 
     #print(qp_ratios.shape, qp_nn_idx.shape)
     #continue
-    for i_o, scores in enumerate(partial_scores):
+    for obj_meta, diff_ratios, diff_indexs, diff_scores, local_keypoint_matches in partial_scores:
         
-        obj_meta = scores[0]
-        diff_ratios = scores[1]
-        diff_indexs = scores[2]
+        #obj_meta = scores[0]
+        #diff_ratios = scores[1]
+        #diff_indexs = scores[2]
 
         diff_nn = diff_indexs[:,:,0]
 
@@ -105,8 +262,8 @@ def NN_matcher(partial_scores):
             ])
         else: # Correct inter-space label; then, check intra-space label.
             
-            diff_scores = scores[3]
-            local_keypoint_matches = scores[4]
+            #diff_scores = scores[3]
+            #local_keypoint_matches = scores[4]
             
             best_keypointMatches = local_keypoint_matches[np.argmax(weighted_scores)]
             qry_kp = best_keypointMatches[1]
@@ -120,7 +277,7 @@ def NN_matcher(partial_scores):
             errors.append([
                 obj_meta[0],
                 0,
-                LA.norm(np.mean(best_ref_kps, axis = 0) - obj_meta[2][:3]),
+                LA.norm(np.mean(best_ref_kps[:,:3], axis = 0) - obj_meta[2][:3]),
                 np.argmax(weighted_scores)
             ])
 
@@ -498,7 +655,7 @@ def get_best_kp_matches(
         good_match_threshold*np.ones(similarity_of_shape.shape)
     )
 
-    while np.max(np.count_nonzero(good_matches, axis = -1)) < 0.1*len(ref_kp):
+    while np.max(np.count_nonzero(good_matches, axis = -1)) < 0.1*len(ref_kp) and good_match_threshold>0.5:
         good_match_threshold = good_match_threshold - 0.05
         good_matches = np.greater(
             np.abs(similarity_of_shape), 
@@ -508,7 +665,7 @@ def get_best_kp_matches(
     # Get which of the kp-pairs give the most good matches
     good_matches_ref_kp = np.argmax(np.count_nonzero(good_matches, axis = -1))
     good_matches_kp_idx = np.insert(good_matches[good_matches_ref_kp],True,good_matches_ref_kp)
-    good_matches_kp_idx.shape
+    #good_matches_kp_idx.shape
 
     # Get corresponding indices of those with good kp matches
     for_plotting_idx = np.where(good_matches_kp_idx == True)[0]

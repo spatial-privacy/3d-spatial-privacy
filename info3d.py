@@ -24,9 +24,11 @@ def mean_confidence_interval(data, confidence=0.95):
     return m, h
 
 
+"""
+As the name suggests, this returns the indices (as well as the distances)
+of the nearest neighbors in 3D euclidean space.
+"""
 def getEuclideanNearestNeighbours(point_cloud, n=2, thresh_max=20):
-    # As the name suggests, this returns the indices (as well as the distances)
-    # of the nearest neighbors in 3D euclidean space.
 
     point_cloud_coord = point_cloud[:,:3]
 
@@ -50,6 +52,11 @@ def getEuclideanNearestNeighbours(point_cloud, n=2, thresh_max=20):
     
     return nearestneighbours, difference[:,1:n+1]
 
+"""
+To get the area:
+1. Extract vectors of 2 of the three sides of one triangle.
+2. Get half the magnitude of their cross product.
+"""
 def getTriangleAreas(_point_cloud, _triangles):
 
     v1 = _point_cloud[_triangles[:,0],:3] - _point_cloud[_triangles[:,1],:3]
@@ -58,6 +65,9 @@ def getTriangleAreas(_point_cloud, _triangles):
         
     return area
 
+"""
+Sum the areas of the triangles.
+"""
 def getPointCloudArea(_point_cloud, _triangles):
     
     return np.sum(getTriangleAreas(_point_cloud, _triangles))
@@ -90,13 +100,18 @@ def OLDgetQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
     
     return n_pointCloud
 
-
+"""
+We sub sample the point cloud given a [sampling-]scale value.
+1. We create a 3D matrix that can enclose the given point cloud.
+2. The matrix represents bins whose inter-element distance is 1/scale.
+"""
 def getQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
     
     np_pointCloud = np.asarray(np.copy(_point_cloud))
     
     n_pointCloud = []
     
+    # Compute the bounds and translation of the given point cloud.
     upper_bound = np.ceil(np.max(np_pointCloud[:,:3]))+1
     lower_bound = np.floor(np.min(np_pointCloud[:,:3]))-1
     maximum_span = int(max(upper_bound-lower_bound,5))
@@ -107,6 +122,7 @@ def getQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
         print(" Lower bound",np.min(np_pointCloud[:,:3]),lower_bound)
         print(" Bound space",maximum_span)#,bias)
     
+    # Translate the point cloud so center is origin.
     np_pointCloud[:,:3] += 0.5*maximum_span - bias
     np_pointCloud[:,:3] *= scale
     #np_pointCloud[:,:3] += 0.5*maximum_space*scale
@@ -117,11 +133,16 @@ def getQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
         print(" New Upper bound",np.max(np_pointCloud[:,:3]),new_upper_bound)
         print(" New Lower bound",np.min(np_pointCloud[:,:3]),new_lower_bound)
         #print(" New Bound space",maximum_span)
-
+        
+    # Create an empty 3D array [p_model] that can enclose the given point cloud.
+    # The dimensions of the array is dictated by the bounds and the scale.
+    # Each element in the 3D array represents a bin with size 1/scale.
     p_model = np.zeros((maximum_span*2*scale,maximum_span*2*scale,maximum_span*2*scale)) # i, x, y, z space.
     if verbose:
         print(" New: Model shape", p_model.shape)
         
+    # Iterate the point cloud and fill the empty bins with the first point
+    # that fits. The resulting accumulate points represent a down-samnpled point cloud.
     for point in np_pointCloud:
         point[:3] = np.clip(point[:3],0,np.min(p_model.shape)-1)
         if p_model[int(point[0]),int(point[1]),int(point[2])] == 0:
@@ -130,6 +151,7 @@ def getQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
 
     n_pointCloud = np.asarray(n_pointCloud)
 
+    # Retranslate the down-sampled point cloud.
     n_pointCloud[:,:3] = n_pointCloud[:,:3]*1.0/scale-0.5*maximum_span+bias
     
     if verbose:
@@ -139,6 +161,11 @@ def getQuantizedPointCloudOnly(_point_cloud,scale = 5, verbose = False):
     
     return n_pointCloud
 
+"""
+We sub sample the point cloud given a [sampling-]scale value.
+1. We create a 3D matrix that can enclose the given point cloud.
+2. The matrix represents bins whose inter-element distance is 1/scale.
+"""
 def getQuantizedPointCloud(_point_cloud, _triangles,scale = 20,verbose = False):
     
     np_pointCloud = np.asarray(np.copy(_point_cloud))
@@ -499,7 +526,8 @@ def getPartialPointCloud(
     triangles,
     radius = 1,
     vertex = [],
-    verbose = False
+    verbose = False,
+    return_indices = False
 ):
 
     triangle_indices = np.arange(len(triangles))
@@ -514,7 +542,7 @@ def getPartialPointCloud(
     # makes sure that we don't get a point beyond the pC size
 
     nbrs = NearestNeighbors(n_neighbors=len(pointCloud)-1, algorithm='brute').fit(pointCloud[:,:3])
-    distances, indices = nbrs.kneighbors(pointCloud[:,:3])
+    distances, indices = nbrs.kneighbors(np.asarray([pointCloud[vertex,:3]]))
     # 1.b
     # list EVERYTHING, then update one-by-one
 
@@ -527,10 +555,10 @@ def getPartialPointCloud(
     
 
     # Get the acceptable neighbors of the chosen point
-    acceptable_point_neighbors = indices[vertex,np.where(distances[vertex]<radius)[0]]
+    acceptable_point_neighbors = indices[0,np.where(distances[0]<radius)[0]]
     depletable_triangles = np.copy(triangles)
     #print(len(acceptable_point_neighbors),"neighbors")
-    acceptable_neighbor_distances = distances[vertex,np.where(distances[vertex]<radius)[0]]
+    acceptable_neighbor_distances = distances[0,np.where(distances[0]<radius)[0]]
 
     # While distance of points to be addded are less than 1,
     # get the indices of the connected items.
@@ -570,14 +598,20 @@ def getPartialPointCloud(
 
     partial_pointcloud = np.asarray(partial_pointcloud)
 #    print("Remaining points",len(depletable_neighbors))
-#    print(stopcount)    
-    return partial_pointcloud, partial_triangles, original_vertex
+#    print(stopcount) 
+
+    if return_indices:
+        return partial_pointcloud, partial_triangles, original_vertex, included_vertices
+    else:
+        return partial_pointcloud, partial_triangles, original_vertex
 
 def getDelaunayTriangles(
     plane_params, # bestPlane, i.e. containing reference vertex and normal
     pointcloud,
     triangle_area_threshold = 0.1,
-    verbose = True
+    phi = np.nan,
+    strict = False,
+    verbose = False
 ):
     d = -plane_params[0].dot(plane_params[1])
     
@@ -588,20 +622,20 @@ def getDelaunayTriangles(
     p_triangles = []
 
     # Generalize the bestPlane to one of the surface-axis to get a 3-point Delaunay match
-    phi = math.fabs(plane_params[1][1]* 1./LA.norm(plane_params[1])) # y/r
+    if np.isnan(phi):
+        phi = math.fabs(plane_params[1][1]* 1./LA.norm(plane_params[1])) # y/r
 
     try:
         if math.degrees(math.acos(phi)) < 45 : # arc-cos(y/r) = phi < 45 --> horizontal
             # use floor (plane x-z) as origin mesh
-
-            PY = (-plane_params[1][0] * PX - plane_params[1][2] * PZ - d) * 1. /plane_params[1][1]
+            #PY = (-plane_params[1][0] * PX - plane_params[1][2] * PZ - d) * 1. /plane_params[1][1]
 
             surfaces_delaunay = Delaunay(np.stack((PX,PZ)).T)
             p_triangles=surfaces_delaunay.simplices
             #orientation = 'horizontal'
         else:
             #use vertical wall x-y as origin mesh
-            PZ = (-plane_params[1][0] * PX - plane_params[1][1] * PY - d) * 1. /plane_params[1][2]
+            #PZ = (-plane_params[1][0] * PX - plane_params[1][1] * PY - d) * 1. /plane_params[1][2]
 
             surfaces_delaunay = Delaunay(np.stack((PX,PY)).T)
             p_triangles=surfaces_delaunay.simplices
@@ -610,27 +644,35 @@ def getDelaunayTriangles(
         # Error in getting Delaunay triangles.
         pass
         
-    if len(p_triangles) != 0:
+    if strict and len(p_triangles) != 0:
         v1 = pointcloud[p_triangles[:,0],:3] - pointcloud[p_triangles[:,1],:3]
         v2 = pointcloud[p_triangles[:,2],:3] - pointcloud[p_triangles[:,1],:3]
         area = np.abs(LA.norm(np.cross(v1,v2), axis = 1))*0.5
         
+        v1_l = LA.norm(v1, axis = 1)
+        v2_l = LA.norm(v2, axis = 1)
+        
         if verbose:
-            print("  getDelaunayTriangles: threshold = {:.3f}, v1: ({.5f},{:.5f}); v2: ({:.5f},{:.5f})".format(
+            print("  getDelaunayTriangles: threshold = {:.3f}, mean area = {:.3f} ({:.3f})".format( #v1: ({.3f},{:.3f}); v2: ({:.3f},{:.3f})".format(
                 triangle_area_threshold,
-                np.amin(LA.norm(v1, axis = 1)),
-                np.amax(LA.norm(v1, axis = 1)),
-                np.amin(LA.norm(v2, axis = 1)),
-                np.amax(LA.norm(v2, axis = 1)),
+                #np.amin(LA.norm(v1, axis = 1)),
+                #np.amax(LA.norm(v1, axis = 1)),
+                #np.amin(LA.norm(v2, axis = 1)),
+                #np.amax(LA.norm(v2, axis = 1))
+                np.nanmean(area),
+                np.nanstd(area)
             ))
             
+        # Pick the triangles which are legitimately small enough. Too large means this triangles should not exist.
+        # --> area < theshold (i.e. 0.1)
+        # --> length of two sides should be less than twice the threshold to maintian the idea of bh/2.
         p_triangles = p_triangles[
             np.intersect1d(
                 np.intersect1d(
-                    np.where(area < triangle_area_threshold)[0],
-                    np.where(LA.norm(v1, axis = 1) < (2.0*triangle_area_threshold))[0]
+                    np.where(area < (np.nanmean(area) + 2*np.nanstd(area)))[0],
+                    np.where(v1_l < (np.nanmean(v1_l) + 2*np.nanstd(v1_l)))[0]
                 ),
-                np.where(LA.norm(v2, axis = 1) < (2.0*triangle_area_threshold))[0]
+                np.where(v2_l < (np.nanmean(v2_l) + 2*np.nanstd(v2_l)))[0]
             )
         ]
         #p_pointCloud = pointcloud[np.unique(p_triangles.flatten())]
@@ -756,12 +798,24 @@ def getRansacPlanesOld(
 
 def getRansacPlanes(
     pointCloud,
+    #triangles,
     planes_to_find = 30, # number of planes to find
     threshold = 0.05,     # the point-plane distance threshold
     trials = 100,       # the number of RANSAC trials
+    #strict = False
     #plane_group = 200     # number of nearby points per plane
 ):
 
+    density = 0
+    
+    """
+    if strict:
+        v1 = pointCloud[triangles[:,0],:3] - pointCloud[triangles[:,1],:3]
+        v2 = pointCloud[triangles[:,2],:3] - pointCloud[triangles[:,1],:3]
+        area = np.abs(LA.norm(np.cross(v1,v2), axis = 1))*0.5
+        density = len(pointCloud)/np.nansum(area)
+    """
+        
     planeCollection = []
     test_max = 10
 
@@ -824,12 +878,35 @@ def getRansacPlanes(
             PX = depletable_pc[bestPoints][:,0]
             PY = depletable_pc[bestPoints][:,1]
             PZ = depletable_pc[bestPoints][:,2]
+            
+            phi = math.fabs(bestPlane[1][1]* 1./LA.norm(bestPlane[1])) # y/r
+            
+            if math.degrees(math.acos(phi)) < 45 : # arc-cos(y/r) = phi < 45 --> horizontal
+                # use floor (plane x-z) as origin mesh
+                NPY = (-bestPlane[1][0] * PX - bestPlane[1][2] * PZ - d) * 1. /bestPlane[1][1]
+                #orientation = 'horizontal'
+                acceptable_move = np.where(np.abs(PY-NPY)<10*threshold)[0]
+                NPY = NPY[acceptable_move]
+                NPX = PX[acceptable_move]
+                NPZ = PZ[acceptable_move]
+            else:
+                #use vertical wall x-y as origin mesh
+                NPZ = (-bestPlane[1][0] * PX - bestPlane[1][1] * PY - d) * 1. /bestPlane[1][2]
+                #orientation = 'vertical'
+                acceptable_move = np.where(np.abs(PZ-NPZ)<10*threshold)[0]
+                NPZ = NPZ[acceptable_move]
+                NPX = PX[acceptable_move]
+                NPY = PY[acceptable_move]
 
+            if len(NPX) == 0:
+                if verbose: print("Emptied after strict acceptable points",PX.shape,NPX.shape)
+                continue
+                
             # Add final candidate plane to list of planes
             planes.append([
-                bestPlane,
+                [bestPlane ,phi, density],
                 #np.concatenate((np.stack((PX,PY,PZ)).T,depletable_pc[bestPoints][:,3:6]),axis=1),
-                np.concatenate((np.stack((PX,PY,PZ)).T,np.repeat([bestPlane[1]],len(PX),axis = 0)),axis=1),
+                np.concatenate((np.stack((NPX,NPY,NPZ)).T,np.repeat([bestPlane[1]],len(NPX),axis = 0)),axis=1),
                 depletable_pc[sample]
             ])
 
@@ -853,6 +930,8 @@ def getLOCALIZEDRansacPlanes(
     verbose = False
     #plane_group = 200     # number of nearby points per plane
 ):
+    
+    #density = 0
 
     planeCollection = []
     test_max = 10
@@ -880,13 +959,13 @@ def getLOCALIZEDRansacPlanes(
     d = -firstPlane[0].dot(firstPlane[1])
     
     for i, point in enumerate(depletable_pc): #[neighbours[sample]]
-        if LA.norm(point[3:]) == 0:
+        if LA.norm(firstPlane[1])*LA.norm(point[3:]) == 0:
             zero_normals += 1
             if abs((np.dot(firstPlane[1],point[:3])+d)*1.0/LA.norm(firstPlane[1],ord = 2)) < threshold:
                 # only add a point with zero_normal if very close to the plane
                 added_zero_normals += 1
                 firstPoints.append(i)
-        if abs(np.dot(firstPlane[1],point[3:])/(LA.norm(firstPlane[1])*LA.norm(point[3:]))) > (1-20*threshold):
+        if abs(np.dot(firstPlane[1],point[3:])/(LA.norm(firstPlane[1])*LA.norm(point[3:]))) > max(0,(1-20*threshold)):
             # if normals are close accept if near to the candidate plane
             if abs((np.dot(firstPlane[1],point[:3])+d)*1.0/LA.norm(firstPlane[1],ord = 2)) < threshold:
                 firstPoints.append(i)
@@ -899,10 +978,12 @@ def getLOCALIZEDRansacPlanes(
     PX = depletable_pc[firstPoints][:,0]
     PY = depletable_pc[firstPoints][:,1]
     PZ = depletable_pc[firstPoints][:,2]        
+            
+    phi = math.fabs(firstPlane[1][1]* 1./LA.norm(firstPlane[1])) # y/r
 
     # Add final candidate plane to list of planes
     planes.append([
-        firstPlane,
+        [firstPlane ,phi, 0],
         #np.concatenate((np.stack((PX,PY,PZ)).T,depletable_pc[bestPoints][:,3:6]),axis=1),
         np.concatenate((np.stack((PX,PY,PZ)).T,np.repeat([firstPlane[1]],len(PX),axis = 0)),axis=1),
         original_vertex
@@ -1042,14 +1123,16 @@ def updatePlanesWithSubsumption(
             if verbose: print(" Added a ",bestPlane,"\n in {:.3f} seconds".format(time.time() - t1))
 
             d = -bestPlane[0].dot(bestPlane[1])
+            
+            phi = math.fabs(bestPlane[1][1]* 1./LA.norm(bestPlane[1])) # y/r
 
             # Add final candidate plane to list of planes
             planes.append([
-                bestPlane,
+                [bestPlane ,phi, 0],
                 #np.concatenate((np.stack((PX,PY,PZ)).T,depletable_pc[bestPoints][:,3:6]),axis=1),
                 np.concatenate((best_pc[:,:3],np.repeat([bestPlane[1]],len(best_pc),axis = 0)),axis=1),
                 depletable_existing[sample]],
-            )
+            )     
 
             # Remove points of final plane from remaining candidate points
             depletable_pc = np.delete(depletable_pc,bestPoints,0)
@@ -1083,12 +1166,15 @@ def updatePlanesWithSubsumption(
     for normal in remaining_existing_normals:
 
         existing_pc_idx = np.where(np.round(depletable_existing[:,3:], decimals = 5) == normal)[0]
-
+        
+        current_plane = [
+            depletable_existing[np.random.choice(existing_pc_idx),:3],
+            normal
+        ]
+        phi = math.fabs(current_plane[1][1]* 1./LA.norm(current_plane[1]))
+        
         planes.append([
-            [
-                depletable_existing[np.random.choice(existing_pc_idx),:3],
-                normal
-            ],
+            [current_plane,phi,0],
             depletable_existing[existing_pc_idx],
             [] # empty because already
         ])
@@ -1101,7 +1187,8 @@ def updatePlanesWithSubsumption(
 def getGeneralizedPointCloud(
     planes,
     triangle_area_threshold = 0.1,
-    verbose = False  
+    strict = False,
+    verbose = False
 ):
     
     included_points = 0
@@ -1110,36 +1197,52 @@ def getGeneralizedPointCloud(
     generalized_triangles = []
 
     for plane_params, points, refpoint in planes:
-        #plane_params = plane_[0]
+        bestPlane = plane_params[0]
+        phi = plane_params[1]
+        density = plane_params[2]
         #points = plane_[1]
         #refpoint = plane_[2]
         
         #triangles = plane_[2]
         triangles = getDelaunayTriangles(
-            plane_params, 
+            bestPlane, 
             points,
             triangle_area_threshold = triangle_area_threshold,
+            phi = phi,
+            strict = strict,
             verbose = verbose
         )
         
-        if triangles == []:
-            if verbose: print("No triangles at",plane_params,len(planes),points.shape)
+        if len(triangles) == 0:
+            if verbose: print("No triangles at",bestPlane,len(planes),points.shape)
             continue
-
+            
         PX = points[:,0]
         PY = points[:,1]
         PZ = points[:,2]
+            
+        if strict:
+            # Get area and point desity of the planes
+            v1 = points[triangles[:,0],:3] - points[triangles[:,1],:3]
+            v2 = points[triangles[:,2],:3] - points[triangles[:,1],:3]
+            area = np.abs(LA.norm(np.cross(v1,v2), axis = 1))*0.5
+            point_density = len(points)/np.nansum(area)
+            
+            if verbose: print("Plane area {:.3f}; point density {:.3f}.".format(np.nansum(area),point_density))
+            
+            if point_density < 0.75*density:
+                continue
 
         included_points += len(points)
 
         # Populating the 
         if len(generalized_points)== 0:
-            generalized_points = np.concatenate((np.stack((PX,PY,PZ)).T,np.tile(plane_params[1],(len(PX),1))),axis=1)
+            generalized_points = np.concatenate((np.stack((PX,PY,PZ)).T,np.tile(bestPlane[1],(len(PX),1))),axis=1)
             generalized_triangles = triangles[:,:3]
         else:
             generalized_triangles = np.append(generalized_triangles,triangles[:,:3]+len(generalized_points),axis=0)
             generalized_points = np.append(generalized_points,
-                                           np.concatenate((np.stack((PX,PY,PZ)).T,np.tile(plane_params[1],(len(PX),1))),axis=1),
+                                           np.concatenate((np.stack((PX,PY,PZ)).T,np.tile(bestPlane[1],(len(PX),1))),axis=1),
                                            axis=0)
             
     return generalized_points, generalized_triangles
@@ -1157,6 +1260,15 @@ def getGeneralizedPointCloudOld(planes,plane_properties,plane_threshold = 0.75):
         triangles = plane_[2]
         refpoint = plane_[3]
 
+        """
+        # Get area and point desity of the planes
+            plane_area = getPointCloudArea(np.stack((PX,PY,PZ)).T,p_triangles)
+            plane_properties.append([
+                plane_area,
+                len(bestPoints)/plane_area --> point density
+            ])
+        """
+        # If point density is below 0.75 the min(median, mean) of the planes in the space.
         if plane_properties[i,1]<plane_threshold*min(np.mean(plane_properties[:,1]),np.median(plane_properties[:,1])):
             continue
 
@@ -1201,11 +1313,20 @@ def getSpinImageDescriptors(_point_cloud,
         chosen_points = getQuantizedPointCloudOnly(np_pointCloud,down_resolution,verbose=verbose)
         if verbose: print("New:",chosen_points.shape)
 
-    chosen_points = np.delete(chosen_points,np.where(LA.norm(chosen_points[:,3:-1],axis=1)== 0)[0],0)
+    chosen_points = np.delete(chosen_points,np.where(LA.norm(chosen_points[:,3:],axis=1)== 0)[0],0)
     
-    #if len(chosen_points)<10:
-    #    print(" Chosen points",chosen_points.shape)
+    """
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
 
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Complete",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+                print("  IN Chosen Points before:",chosen_points.shape)
+                #vertical = True
+
+    """
     view_invariant_descriptor_cylinders = np.zeros(
         (np.append(len(chosen_points),
                    np.asarray(cylindrical_quantization)
@@ -1276,7 +1397,16 @@ def getSpinImageDescriptors(_point_cloud,
 
     #print("Time to get spin image descriptors",time.time()-t0)
         #print(view_invariant_descriptors.shape)
-        
+    """    
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
+        print("  IN Chosen Points after:",chosen_points.shape)
+
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Chosen",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+    """    
     view_invariant_descriptors = np.asarray(view_invariant_descriptors)
     return view_invariant_descriptors, chosen_points, view_invariant_descriptor_cylinders
 
