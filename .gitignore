@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 testing_results/
 /*.pickle
+pointnetvlad_submaps/
