@@ -5,3 +5,4 @@ __pycache__/
 testing_results/
 /*.pickle
 pointnetvlad_submaps/
+model/
