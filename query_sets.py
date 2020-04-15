@@ -12,11 +12,11 @@ import csv
 
 from sklearn.neighbors import NearestNeighbors, KDTree
 
-base_path= "pointnetvlad_submaps/"#"../partial_dataset/"
+base_path= "pointnetvlad_submaps/"
 
-database_trees = []
+DATABASE_TREES = []
 
-database_sets = []
+DATABASE_SETS = []
 
 def check_in_test_set(northing, easting, points, x_width, y_width):
 	in_test_set=False
@@ -41,7 +41,8 @@ def get_sets_dict(filename):
     
 def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filename):
     
-	global database_trees
+	global DATABASE_TREES
+	global DATABASE_SETS
 
 	test_trees=[]
 	for folder in folders:
@@ -54,12 +55,11 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
 			df_database=df_database.append(row, ignore_index=True)
 
 		database_tree = KDTree(df_database[['northing','easting','alting']])
-		database_trees.append(database_tree)
+		DATABASE_TREES.append(database_tree)
 
 	print("Done getting database trees.")
 
 	test_sets=[]
-	global database_sets
 	for folder in folders:
 		database={}
 		test={} 
@@ -73,13 +73,13 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
 			#elif(check_in_test_set(row['northing'], row['easting'], p, x_width, y_width)):
 			#test[len(test.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting']}
 			database[len(database.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting'],'alting':row['alting']}
-		database_sets.append(database)
+		DATABASE_SETS.append(database)
 		#if folder not in train_folders:
 		#	test_sets.append(test)
             
 	print("Database (Tree) sets:",len(database_sets))    
 
-	output_to_file(database_sets, 'pointnetvlad_submaps/3d_evaluation_database.pickle')
+	output_to_file(DATABASE_SETS, 'pointnetvlad_submaps/3d_evaluation_database.pickle')
     #'partial_spaces/'+partial_name+'_evaluation_database.pickle')
 
 
@@ -114,8 +114,8 @@ def construct_query_sets(partial_path, pointcloud_fols, filename):#, partial_nam
             
 	print(" Test (Tree) sets:",len(test_sets))    
 
-	for i in range(len(database_sets)):
-		tree=database_trees[i]
+	for i in range(len(DATABASE_SETS)):
+		tree=DATABASE_TREES[i]
 		for j in range(len(test_sets)):
 			#if(i==j):
 			#	continue
@@ -157,10 +157,10 @@ def construct_successive_query_sets(successive_path,partial_path, pointcloud_fol
 		#test[len(test.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting']}
 	test_sets.append(test)
             
-	print("Database (Tree) sets:",len(database_sets),"; Test (Tree) sets:",len(test_sets))    
+	print("Database (Tree) sets:",len(DATABASE_SETS),"; Test (Tree) sets:",len(test_sets))    
 
-	for i in range(len(database_sets)):
-		tree=database_trees[i]
+	for i in range(len(DATABASE_SETS)):
+		tree=DATABASE_TREES[i]
 		for j in range(len(test_sets)):
 			#if(i==j):
 			#	continue
