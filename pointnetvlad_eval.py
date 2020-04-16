@@ -56,9 +56,10 @@ all_folders= ['raw_dataset','ransac_dataset']
 
 print(all_folders)
 
+global DATABASE_DFS
 DATABASE_DFS = []
 
-for folder in all_folders:
+for folder in ['raw_dataset','ransac_dataset']:
     
     print("Training df for:",folder)
     df_database= pd.DataFrame(columns=['file','northing','easting','alting'])
@@ -79,6 +80,7 @@ def get_bn_decay(batch):
     return bn_decay     
 
 def evaluate(query_sets, query_db_np, output_file):
+    
     global DATABASE_VECTORS
     global QUERY_VECTORS
     #global QUERY_DATABASE_NUMPY
@@ -142,9 +144,12 @@ def evaluate(query_sets, query_db_np, output_file):
         
         if len(DATABASE_VECTORS) == 0:
             for i in range(len(DATABASE_SETS)):
+                print(i,len(DATABASE_SETS))
                 DATABASE_VECTORS.append(get_latent_vectors(sess, ops, DATABASE_SETS[i]))
         
         for j in range(len(query_sets)):
+            print(j,len(query_sets))
+
             QUERY_VECTORS.append(get_latent_vectors(sess, ops, query_sets[j]))
 
         for m in range(len(DATABASE_SETS)):
@@ -241,7 +246,7 @@ def get_latent_vectors(sess, ops, dict_to_process):
 def get_recall(sess, ops, m, n, query_sets, query_db_np):
     global DATABASE_VECTORS
     global QUERY_VECTORS
-    #global QUERY_DATABASE_NUMPY
+    global DATABASE_DFS
 
     database_output= DATABASE_VECTORS[m]
     queries_output= QUERY_VECTORS[n]
@@ -275,7 +280,7 @@ def get_recall(sess, ops, m, n, query_sets, query_db_np):
                     top1_similarity_score.append(similarity)
                 recall[j]+=1
                 # Only get the intra space for correct labels.
-                intra_space_distance[j]+= np.linalg.norm(database_numpy[indices[0][j],1:] - query_db_np[i,1:])
+                intra_space_distance[j]+= np.linalg.norm(database_numpy[indices[0][j],1:-1] - query_db_np[i,1:-1])
                 break
         if len(list(set(indices[0][0:threshold]).intersection(set(true_neighbors))))>0:
             one_percent_retrieved+=1
