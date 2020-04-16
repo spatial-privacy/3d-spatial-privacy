@@ -52,7 +52,7 @@ RESULTS_FOLDER="testing_results/pointnetvlad/"
 if not os.path.exists(RESULTS_FOLDER): os.mkdir(RESULTS_FOLDER) 
     
 BASE_PATH = 'pointnetvlad_submaps'
-all_folders= ['raw_dataset']
+all_folders= ['raw_dataset','ransac_dataset']
 
 print(all_folders)
 

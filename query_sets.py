@@ -14,8 +14,10 @@ from sklearn.neighbors import NearestNeighbors, KDTree
 
 base_path= "pointnetvlad_submaps/"
 
+global DATABASE_TREES
 DATABASE_TREES = []
 
+global DATABASE_SETS
 DATABASE_SETS = []
 
 def check_in_test_set(northing, easting, points, x_width, y_width):
@@ -43,6 +45,9 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
     
 	global DATABASE_TREES
 	global DATABASE_SETS
+    
+	DATABASE_TREES = []
+	DATABASE_SETS = []
 
 	test_trees=[]
 	for folder in folders:
@@ -67,17 +72,12 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
 		df_locations['timestamp']=folder+pointcloud_fols+df_locations['timestamp'].astype(str)+'.pickle'
 		df_locations=df_locations.rename(columns={'timestamp':'file'})
 		for index,row in df_locations.iterrows():				
-			#if folder not in train_folders:
-			#	#print("test",folder)
-			#	test[len(test.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting'],'alting':row['alting']}
-			#elif(check_in_test_set(row['northing'], row['easting'], p, x_width, y_width)):
-			#test[len(test.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting']}
 			database[len(database.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting'],'alting':row['alting']}
 		DATABASE_SETS.append(database)
 		#if folder not in train_folders:
 		#	test_sets.append(test)
             
-	print("Database (Tree) sets:",len(database_sets))    
+	print("Database (Tree) sets:",len(DATABASE_SETS))    
 
 	output_to_file(DATABASE_SETS, 'pointnetvlad_submaps/3d_evaluation_database.pickle')
     #'partial_spaces/'+partial_name+'_evaluation_database.pickle')
