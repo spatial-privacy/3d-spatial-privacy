@@ -27,7 +27,7 @@ AR/MR platforms such as [Google ARCore](https://developers.google.com/ar/), [App
 
 In light of this, first, we present an attacker that not only recognizes the general space, i.e. *inter-space*, but also infers the user’s location within the space, i.e. *intra-space*. To construct the attacker, we build up on existing place and shape recognition methods that have been applied on 3D lidar data and modify it to the scale on which 3D data is captured by MR platforms. We demonstrate how easy it is to extend these 3D recognition methods to be used as an attacker in the MR scenario. Then, we present *spatial plane generalizations* with *conservative plane releasing* as a simple privacy approach which we insert as an intermediary layer of protection as shown in Fig. 2.
 
-For the attackers, we employed two different methiods: NN-matcher which uses a *inttrinsic* descirptor matching, and the *deep neural network*-based [pointnetvlad](https://github.com/mikacuy/pointnetvlad).
+For the attackers, we employed two different methods: NN-matcher which uses a *intrinsic* 3D descriptor matching, and the *deep neural network*-based [pointnetvlad](https://github.com/mikacuy/pointnetvlad). We show the results for both.
 
 # SAMPLE CODE
 
