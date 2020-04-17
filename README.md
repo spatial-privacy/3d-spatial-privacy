@@ -8,7 +8,7 @@
 
 
 # ABSTRACT
-Augmented reality (AR) or mixed reality (MR) platforms require spatial understanding to detect objects or surfaces, often including their structural (i.e. spatial geometry) and photometric (e.g. color, and texture) attributes, to allow applications to place virtual or synthetic objects seemingly "anchored'' on to real world objects; in some cases, even allowing interactions between the physical and virtual objects. These functionalities requires AR/MR platforms to capture the 3D spatial information with high resolution and frequency; however, this poses unprecedented risks to user privacy. Aside from objects being detected, spatial information also reveals the location of the user with high specificity, e.g. in which part of the house the user is. In this work, we propose to leverage *spatial generalizations* coupled with *conservative releasing* to provide spatial privacy while maintaining data utility. We simulate user movement within spaces which reveals more of their space as they move around. Then, we designed an inference attacker to which the proposed spatial privacy approach can be evaluated against. Results show that revealing no more than 11 generalized planes--accumulated from revealed spaces with large enough radius, i.e. *r*≤1.0m--can make an adversary fail in identifying the spatial location of the user for at least half of the time. Furthermore, if the accumulated spaces are of smaller radius, i.e. *r*≤ 0.5m, we can release up to 29 generalized planes while enjoying both better data utility and privacy.
+Augmented reality (AR) or mixed reality (MR) platforms require spatial understanding to detect objects or surfaces, often including their structural (i.e. spatial geometry) and photometric (e.g. color, and texture) attributes, to allow applications to place virtual or synthetic objects seemingly ''anchored'' on to real world objects; in some cases, even allowing interactions between the physical and virtual objects. These functionalities require AR/MR platforms to capture the 3D spatial information with high resolution and frequency; however, these pose unprecedented risks to user privacy. Aside from objects being detected, spatial information also reveals the location of the user with high specificity, e.g. in which part of the house the user is. In this work, we propose to leverage *spatial generalizations* coupled with *conservative releasing* to provide spatial privacy while maintaining data utility. We designed an adversary that builds up on existing place and shape recognition methods over 3D data as attackers to which the proposed spatial privacy approach can be evaluated against. Then, we simulate user movement within spaces which reveals more of their space as they move around utilizing 3D point clouds collected from Microsoft HoloLens. Results show that revealing no more than 11 generalized planes--accumulated from revealed spaces with large enough radius, i.e. *r*≤1.0m--can make an adversary fail in identifying the spatial location of the user for at least half of the time. Furthermore, if the accumulated spaces are of smaller radius, i.e. *r*≤ 0.5m, we can release up to 29 generalized planes while enjoying both better data utility and privacy.
 
 # BACKGROUND
 <p align="center">
@@ -25,75 +25,75 @@ Augmented reality (AR) or mixed reality (MR) platforms require spatial understan
 
 AR/MR platforms such as [Google ARCore](https://developers.google.com/ar/), [Apple ARKit](https://developer.apple.com/documentation/arkit), and [Windows Mixed Reality API](https://www.microsoft.com/en-au/windows/windows-mixed-reality) requires spatial understanding of the user environment in order to deliver virtual augmentations that seemingly inhabit the real world, and, in some immersive examples, even interact with physical objects. The captured spatial information is stored digitally as a spatial map or graph of 3D points, called a *point cloud*, which is accompanied by mesh information to indicate how the points, when connected, represent surfaces and other structures in the user environment. However, these 3D spatial maps that may contain sensitive information can be stored and accessed by a potential adversary (as shown in Fig. 1), and be further utilized for functionalities beyond the application's intended function such as aggressive localized advertisements. And, so far, there are *no* mechanisms in place that ensure user data privacy in MR platforms.
 
-In light of this, first, we present an attacker that not only recognizes the general space, i.e. *inter-space*, but also infers the user’s location within the space, i.e. *intra-space*. To construct the attacker, we build up on existing place recognition methods that have been applied on 3D lidar data and modify it to the scale on which 3D data is captured by MR platforms. We demonstrate how easy it is to extend these 3D recognition methods to be used as an attacker in the MR scenario. Then, we present *spatial plane generalizations* with *conservative plane releasing* as a simple privacy approach which we insert as an intermediary layer of protection as shown in Fig. 2.
+In light of this, first, we present an attacker that not only recognizes the general space, i.e. *inter-space*, but also infers the user’s location within the space, i.e. *intra-space*. To construct the attacker, we build up on existing place and shape recognition methods that have been applied on 3D lidar data and modify it to the scale on which 3D data is captured by MR platforms. We demonstrate how easy it is to extend these 3D recognition methods to be used as an attacker in the MR scenario. Then, we present *spatial plane generalizations* with *conservative plane releasing* as a simple privacy approach which we insert as an intermediary layer of protection as shown in Fig. 2.
+
+For the attackers, we employed two different methiods: NN-matcher which uses a *inttrinsic* descirptor matching, and the *deep neural network*-based [pointnetvlad](https://github.com/mikacuy/pointnetvlad).
 
 # SAMPLE CODE
 
 Pre-requisites
 * Python
 * Numpy
-* Scipy
+* Pandas
+* Scipy, scikit-learn
 * HDF5
 * Bz2
 
-Sample data is available [here](https://drive.google.com/drive/folders/1IMVuLJxuKeV9HchGY1Wet5IabK2NS4hc) (Download and unpack the ZIP files). Put the testing_samples and testing_results directory within the head directory of this repo after cloning.
+Pre-requisites for DNN-based pointnetVLAD
+* tensorflow
 
-The notebook [3D-spatial-privacy-testing](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-testing.ipynb) contains a step-by-step replication of our work but at a smaller scale, i.e. less sample iterations. It uses prepared sample data for various scenarios (i.e. inside testing_samples). The notebook [3D-spatial-privacy-generate-samples](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-generate-samples.ipynb) can be used to generate new samples with varying parameters. As one can inspect, we vary the following parameters on both Raw spaces and [RANSAC] generalized spaces: 
+Sample generalized data is available [here](https://drive.google.com/drive/folders/1IMVuLJxuKeV9HchGY1Wet5IabK2NS4hc) (Download and unpack the ZIP files). Put the ransac_pc directory outside of this cloned repo. Then, put the unzipped model directory inside this repo.
+
+
+The notebook [00-generate-samples-and-submaps.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/00-generate-samples-and-submaps.ipynb) generates the samples given the provided raw point clouds and generalized pointclouds. The notebook [01-one-time-partials-with-nn-matcher.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/01-one-time-partials-with-nn-matcher.ipynb) contains a step-by-step replication of the validation and testing using the NN-matcher over one-time released partial spaces but with only 300 sample iterations (you can change this value). It uses prepared sample data for various scenarios. Similary, the notebook [02-successive-with-nn-matcher.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/02-successive-with-nn-matcher.ipynb) shows spatial inference using the NN-matcher over successively released generalized partial spaces. While the notebook [03-inference-with-pointnetvlad.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/03-inference-with-pointnetvlad.ipynb) shows spatial inference using the pointnetvlad for both one-time and successively released generalized partial spaces. It also plots the pointnetvlad performance against the NN-matcher.
+
+Overall, we vary the following parameters on both Raw spaces and [RANSAC] generalized spaces: 
 1. the size, i.e radius, of the revealed space
 2. the number of successively released partial spaces
 3. the number of *generalized* planes released
 
-A separate notebook, i.e. [3D-spatial-privacy-results](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-results.ipynb), just plots the available sample results.
+## Manual to [00-generate-samples-and-submaps](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/00-generate-samples-and-submaps.ipynb)
 
-## Manual to [3D-spatial-privacy-generate-samples](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-generate-samples.ipynb)
+Step 0.1: Extracting sample points for one-time partial radius
 
-Step 0: Extract the point cloud from the OBJ files.
+Step 0.2: Creating a synthetic set of successive partial spaces
 
-Step 0.1: Compute the NN-trees with a set of neighbor size, i.e. nn_range. We use this to generate sample partial spaces.
+Step 0.3: Create submaps for pointnetvlad using same samples
+Step 0.3.1: Generate the reference dataset using the raw dataset
+Step 0.3.2: Generate a reference dataset using a sample (RANSAC) generalized dataset
+Step 0.3.3: Generate the test submaps: for Raw spaces, for (RANSAC) generalized spaces, and for successive spaces.
+Step 0.3.4: Building database and query files for evaluation with pointnetVLAD
 
-Step 1: Compute the descriptors of the spaces from the point cloud.
+## Manual to [01-one-time-partials-with-nn-matcher.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/01-one-time-partials-with-nn-matcher.ipynb)
 
-Step 2.1: Generate partial spaces.
+Step 1.1: Raw spaces (validation)
 
-Step 2.2: Generate successive partial spaces.
+Step 1.2: RANSAC-generalized spaces validation
 
+## Manual to [02-successive-with-nn-matcher.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/02-successive-with-nn-matcher.ipynb)
 
-## Manual to [3D-spatial-privacy-testing](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-testing.ipynb)
-
-Step 1.1: Test RAW partial spaces.
-
-Step 1.2: Test RANSAC-generalized partial spaces.
-
-Step 1.3: Results of partial spaces testing.
-
-Step 2.1: Test successive partial spaces.
+Step 2.1: Successive case with generalized spaces
 
 Step 2.2: Results of successive partial spaces.
 
-Step 3.1: Test successive partial spaces with conservative releasing.
+## Manual to [03-inference-with-pointnetvlad.ipynb](https://github.com/spatial-privacy/3d-spatial-privacy/blob/master/03-inference-with-pointnetvlad.ipynb)
 
-Step 3.2: Results of successive partial spaces with conservative releasing.
+Step 3.1.1: One-time partial release case: inference using pointnetvlad
+Step 3.1.2: Results: One-time release case with pointnetVLAD (vs NN-matcher)
 
-## Manual to [3D-spatial-privacy-results](https://github.com/spatial-privacy/spatial-privacy/blob/master/3D-spatial-privacy-results.ipynb)
-
-Note: We are using the uploaded results in bz2 files for this notebook. The results in regular pickle files are not available iin this repo. But, of course, you can rerun the testing to produce new pickle files and use it in this notebook. The file access to the regular pickle files are just commented out, so you can just uncomment them to use them.
-
-Step 1: Results of partial spaces testing.
-
-Step 2: Results of successive partial spaces.
-
-Step 3: Results of successive partial spaces with conservative releasing.
+Step 3.2.1: Successive case: spatial inference using pointnetvlad
+Step 3.2.2: Results: Successive case with pointnetVLAD (vs NN-matcher)
 
 ## Sample results
 
 <p align="center">
-  <img src="plots/partial-spaces.png" width = "700">
+  <img src="plots/partials-radius-with-pointnetvlad.png" width = "700">
   <br>
   <b>Figure 3:</b> Average inter- and intra-space privacy of partial spaces with varying radius.<br>
 </p>
 
 <p align="center">
-  <img src="plots/successive-partial-spaces.png" width = "700">
+  <img src="plots/successive-with-pointnetvlad.png" width = "700">
   <br>
   <b>Figure 4:</b> Average inter- and intra-space privacy of successively released partial spaces with increasing number of releases.<br>
 </p>
@@ -123,3 +123,16 @@ For our dataset, we gathered real 3D point cloud data using the Microsoft HoloLe
 </p>
 
 In this work, we present *conservative plane releasing*, where we limit the number of planes a generalization produces. Fig. 6a shows an example set of planes that are released after RANSAC generalization of the revealed partial raw spaces (in Fig. 6b). Then, we can limit the maximum allowable planes that can be released, say, a maximum of 3 planes in total. As we can see in Fig. 6c, both partial releases produces only 3 planes.
+
+# CITATION
+Preliminary work on NN-matcher:
+```
+@inproceedings{deguzman2019firstlook,
+  title={A First Look into Privacy Leakage in 3D Mixed Reality Data},
+  author={de Guzman, Jaybie A and Thilakarathna, Kanchana and Seneviratne, Aruna},
+  booktitle={European Symposium on Research in Computer Security},
+  pages={149--169},
+  year={2019},
+  organization={Springer}
+}
+```
