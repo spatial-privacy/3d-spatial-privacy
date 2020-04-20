@@ -10,6 +10,18 @@
 # ABSTRACT
 Augmented reality (AR) or mixed reality (MR) platforms require spatial understanding to detect objects or surfaces, often including their structural (i.e. spatial geometry) and photometric (e.g. color, and texture) attributes, to allow applications to place virtual or synthetic objects seemingly ''anchored'' on to real world objects; in some cases, even allowing interactions between the physical and virtual objects. These functionalities require AR/MR platforms to capture the 3D spatial information with high resolution and frequency; however, these pose unprecedented risks to user privacy. Aside from objects being detected, spatial information also reveals the location of the user with high specificity, e.g. in which part of the house the user is. In this work, we propose to leverage *spatial generalizations* coupled with *conservative releasing* to provide spatial privacy while maintaining data utility. We designed an adversary that builds up on existing place and shape recognition methods over 3D data as attackers to which the proposed spatial privacy approach can be evaluated against. Then, we simulate user movement within spaces which reveals more of their space as they move around utilizing 3D point clouds collected from Microsoft HoloLens. Results show that revealing no more than 11 generalized planes--accumulated from revealed spaces with large enough radius, i.e. *r*≤1.0m--can make an adversary fail in identifying the spatial location of the user for at least half of the time. Furthermore, if the accumulated spaces are of smaller radius, i.e. *r*≤ 0.5m, we can release up to 29 generalized planes while enjoying both better data utility and privacy.
 
+An e-print of this work is available [here]https://arxiv.org/abs/2004.08029):
+```
+@misc{guzman2020conservative,
+    title={Conservative Plane Releasing for Spatial Privacy Protection in Mixed Reality},
+    author={Jaybie A. de Guzman and Kanchana Thilakarathna and Aruna Seneviratne},
+    year={2020},
+    eprint={2004.08029},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV}
+}
+```
+
 # BACKGROUND
 <p align="center">
   <img src="images/adversary-model-pipeline-v6-revised-a.png" width = "500">
@@ -124,7 +136,7 @@ For our dataset, we gathered real 3D point cloud data using the Microsoft HoloLe
 
 In this work, we present *conservative plane releasing*, where we limit the number of planes a generalization produces. Fig. 6a shows an example set of planes that are released after RANSAC generalization of the revealed partial raw spaces (in Fig. 6b). Then, we can limit the maximum allowable planes that can be released, say, a maximum of 3 planes in total. As we can see in Fig. 6c, both partial releases produces only 3 planes.
 
-# CITATION
+# REFERENCE
 Preliminary work on NN-matcher:
 ```
 @inproceedings{deguzman2019firstlook,
