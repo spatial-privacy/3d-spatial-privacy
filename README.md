@@ -6,22 +6,6 @@
 
 [Dataset](#dataset)
 
-
-# ABSTRACT
-Augmented reality (AR) or mixed reality (MR) platforms require spatial understanding to detect objects or surfaces, often including their structural (i.e. spatial geometry) and photometric (e.g. color, and texture) attributes, to allow applications to place virtual or synthetic objects seemingly ''anchored'' on to real world objects; in some cases, even allowing interactions between the physical and virtual objects. These functionalities require AR/MR platforms to capture the 3D spatial information with high resolution and frequency; however, these pose unprecedented risks to user privacy. Aside from objects being detected, spatial information also reveals the location of the user with high specificity, e.g. in which part of the house the user is. In this work, we propose to leverage *spatial generalizations* coupled with *conservative releasing* to provide spatial privacy while maintaining data utility. We designed an adversary that builds up on existing place and shape recognition methods over 3D data as attackers to which the proposed spatial privacy approach can be evaluated against. Then, we simulate user movement within spaces which reveals more of their space as they move around utilizing 3D point clouds collected from Microsoft HoloLens. Results show that revealing no more than 11 generalized planes--accumulated from revealed spaces with large enough radius, i.e. *r*≤1.0m--can make an adversary fail in identifying the spatial location of the user for at least half of the time. Furthermore, if the accumulated spaces are of smaller radius, i.e. *r*≤ 0.5m, we can release up to 29 generalized planes while enjoying both better data utility and privacy.
-
-An e-print of this work is available [here](https://arxiv.org/abs/2004.08029):
-```
-@misc{guzman2020conservative,
-    title={Conservative Plane Releasing for Spatial Privacy Protection in Mixed Reality},
-    author={Jaybie A. de Guzman and Kanchana Thilakarathna and Aruna Seneviratne},
-    year={2020},
-    eprint={2004.08029},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV}
-}
-```
-
 # BACKGROUND
 <p align="center">
   <img src="images/adversary-model-pipeline-v6-revised-a.png" width = "500">
@@ -37,9 +21,21 @@ An e-print of this work is available [here](https://arxiv.org/abs/2004.08029):
 
 AR/MR platforms such as [Google ARCore](https://developers.google.com/ar/), [Apple ARKit](https://developer.apple.com/documentation/arkit), and [Windows Mixed Reality API](https://www.microsoft.com/en-au/windows/windows-mixed-reality) requires spatial understanding of the user environment in order to deliver virtual augmentations that seemingly inhabit the real world, and, in some immersive examples, even interact with physical objects. The captured spatial information is stored digitally as a spatial map or graph of 3D points, called a *point cloud*, which is accompanied by mesh information to indicate how the points, when connected, represent surfaces and other structures in the user environment. However, these 3D spatial maps that may contain sensitive information can be stored and accessed by a potential adversary (as shown in Fig. 1), and be further utilized for functionalities beyond the application's intended function such as aggressive localized advertisements. And, so far, there are *no* mechanisms in place that ensure user data privacy in MR platforms.
 
-In light of this, first, we present an attacker that not only recognizes the general space, i.e. *inter-space*, but also infers the user’s location within the space, i.e. *intra-space*. To construct the attacker, we build up on existing place and shape recognition methods that have been applied on 3D lidar data and modify it to the scale on which 3D data is captured by MR platforms. We demonstrate how easy it is to extend these 3D recognition methods to be used as an attacker in the MR scenario. Then, we present *spatial plane generalizations* with *conservative plane releasing* as a simple privacy approach which we insert as an intermediary layer of protection as shown in Fig. 2.
+In light of this, first, we present an attacker that not only recognizes the general space, i.e. *inter-space*, but also infers the user’s location within the space, i.e. *intra-space*. To construct the attacker, we build up on existing place and shape recognition methods that have been applied on 3D lidar data and modify it to the scale on which 3D data is captured by MR platforms. We demonstrate how easy it is to extend these 3D recognition methods to be used as an attacker in the MR scenario. Then, we present *spatial plane generalizations* with *conservative plane releasing* as a simple privacy approach which we insert as an intermediary layer of protection as shown in Fig. 2. For the attackers, we employed two different methods: NN-matcher which uses a *intrinsic* 3D descriptor matching, and the *deep neural network*-based [pointnetvlad](https://github.com/mikacuy/pointnetvlad).
 
-For the attackers, we employed two different methods: NN-matcher which uses a *intrinsic* 3D descriptor matching, and the *deep neural network*-based [pointnetvlad](https://github.com/mikacuy/pointnetvlad). We show the results for both.
+Results show that revealing no more than 11 *generalized* planes--accumulated from revealed spaces with large enough radius, i.e. *r*≤1.0m--can make an adversary fail in identifying the spatial location of the user for at least half of the time. Furthermore, if the accumulated spaces are of smaller radius, i.e. *r*≤ 0.5m, we can release up to 29 generalized planes while enjoying both better data utility and privacy.
+
+An e-print of this work is available [here](https://arxiv.org/abs/2004.08029):
+```
+@misc{guzman2020conservative,
+    title={Conservative Plane Releasing for Spatial Privacy Protection in Mixed Reality},
+    author={Jaybie A. de Guzman and Kanchana Thilakarathna and Aruna Seneviratne},
+    year={2020},
+    eprint={2004.08029},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV}
+}
+```
 
 # SAMPLE CODE
 
