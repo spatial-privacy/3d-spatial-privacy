@@ -108,7 +108,7 @@ def get_score_kdtree(obj_meta, pointcloud, triangles, descriptors, RANSAC = Fals
 
     return obj_meta, np.asarray(diff_ratios), np.asarray(diff_indexs), np.asarray(diff_scores), local_keypoint_matches
 
-def get_score_kdtree_lean(obj_meta, pointcloud, descriptors):
+def get_score_kdtree_lean(obj_meta, pointcloud, descriptors, key_cap = 100, strict_cap = False):
     
     # ROTATION
     random_theta =  (2*np.pi)*np.random.random()# from [0, 2pi)
@@ -125,13 +125,18 @@ def get_score_kdtree_lean(obj_meta, pointcloud, descriptors):
         p_descriptors, p_keypoints, p_d_c = getSpinImageDescriptors(
             t_pointCloud,
             down_resolution = 5,
-            cylindrical_quantization = [4,5]
+            cylindrical_quantization = [4,5],
+            key_cap = key_cap,
+            strict_cap = strict_cap
         )
     except Exception as ex:
         print("Error getting descriptors of",obj_meta[:2],len(t_pointCloud))
         print("Error Message:",ex)
         
         return
+    
+    if strict_cap and len(p_descriptors) > key_cap:
+        p_descriptors = p_descriptors[np.random.choice(len(p_descriptors),key_cap)]
 
     # Resetting the diff_Ratio matrix
     diff_scores = np.ones((p_descriptors.shape[0],len(descriptors),2))

@@ -1299,13 +1299,14 @@ def getSpinImageDescriptors(_point_cloud,
                             local_radius = 1.0,
                             cylindrical_quantization = [10,20],
                             verbose = False,
-                            old = False
+                            old = False,
+                            key_cap = 50, 
+                            strict_cap = False
                            ):
     
     np_pointCloud = np.asarray(np.copy(_point_cloud))
     other_pc = np.copy(np_pointCloud)    
     
-    #print(np_pointCloud.shape)
     if old:
         chosen_points = OLDgetQuantizedPointCloudOnly(np_pointCloud,down_resolution,verbose=verbose)
         if verbose: print("Old:",chosen_points.shape)
@@ -1314,6 +1315,10 @@ def getSpinImageDescriptors(_point_cloud,
         if verbose: print("New:",chosen_points.shape)
 
     chosen_points = np.delete(chosen_points,np.where(LA.norm(chosen_points[:,3:],axis=1)== 0)[0],0)
+    
+    if strict_cap and len(chosen_points) > key_cap:
+        chosen_points = chosen_points[np.random.choice(len(chosen_points),key_cap)]
+        if verbose: print("Capped chosen points to", key_cap)
     
     """
     if verbose:
@@ -1334,14 +1339,14 @@ def getSpinImageDescriptors(_point_cloud,
                    #[int(resolution*cylindrical_quantization[0]),int(resolution*cylindrical_quantization[1])]
                   )
         ), dtype=np.float16)
-    #    shape is (numer of points, number of a bins, number of b bins)
+    #    shape is (number of points, number of a bins, number of b bins)
     #print(view_invariant_descriptor_cylinders.shape)
 
     t0 = time.time()
     for i,c_p in enumerate(chosen_points):
 
         k_ps = other_pc[:,:3] - c_p[:3] # point (vertex) differences
-        k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=1)==0)[0],0)
+        k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=1)==0)[0],0) # removing itself
 
         #if localize:
         #    k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=1)>local_radius)[0],0)
