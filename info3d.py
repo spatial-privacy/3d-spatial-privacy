@@ -222,6 +222,20 @@ def getQuantizedPointCloud(_point_cloud, _triangles,scale = 20,verbose = False):
     #print(cq_pointCloud.shape,n_pointCloud.shape)
     return n_pointCloud, n_triangles, p_model
 
+
+def getQuantizedPointCloudOnlyTEST(_point_cloud,scale = 5, verbose = False):
+    
+    np_pointCloud = np.asarray(np.copy(_point_cloud))
+    
+    round_new_pointcloud_only = (1.0/scale)*np.around(scale*_point_cloud[:,:3],decimals=0)
+    unq_round_new_pointcloud, indices = np.unique(round_new_pointcloud_only,axis = 0, return_index = True)
+    
+    #print()
+    n_pointCloud = np.hstack((unq_round_new_pointcloud, np_pointCloud[indices,3:]))
+        
+    return n_pointCloud
+
+
 def OLDgetQuantizedPointCloud(_point_cloud, _triangles,scale = 20):
     
     np_pointCloud = np.asarray(np.copy(_point_cloud))
@@ -1414,6 +1428,308 @@ def getSpinImageDescriptors(_point_cloud,
     """    
     view_invariant_descriptors = np.asarray(view_invariant_descriptors)
     return view_invariant_descriptors, chosen_points, view_invariant_descriptor_cylinders
+
+# Getting the "spin image" descriptors for a given point cloud    
+def getSpinImageDescriptorsTest1(_point_cloud,
+                            resolution = 20,
+                            normalize = True,
+                            down_resolution = 3, #keypoint resolution
+                            #localize = False,
+                            local_radius = 1.0,
+                            cylindrical_quantization = [10,20],
+                            verbose = False,
+                            old = False,
+                            key_cap = 50, 
+                            strict_cap = False
+                           ):
+    
+    np_pointCloud = np.asarray(np.copy(_point_cloud))
+    other_pc = np.copy(np_pointCloud)
+    
+    t0 = time.time()
+    
+    if old:
+        chosen_points = getQuantizedPointCloudOnly(np_pointCloud,down_resolution,verbose=verbose)
+        if verbose: print("Old:",chosen_points.shape)
+    else:
+        chosen_points = getQuantizedPointCloudOnlyTEST(np_pointCloud,down_resolution,verbose=verbose)
+        if verbose: print("New:",chosen_points.shape)
+
+    chosen_points = np.delete(chosen_points,np.where(LA.norm(chosen_points[:,3:],axis=1)== 0)[0],0)
+    
+    t1 = time.time()
+    
+    if strict_cap and len(chosen_points) > key_cap:
+        chosen_points = chosen_points[np.random.choice(len(chosen_points),key_cap)]
+        if verbose: print("Capped chosen points to", key_cap)
+    
+    """
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
+
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Complete",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+                print("  IN Chosen Points before:",chosen_points.shape)
+                #vertical = True
+
+    """
+    
+    view_invariant_descriptor_cylinders = np.zeros(
+        (np.append(len(chosen_points),
+                   np.asarray(cylindrical_quantization)
+                   #np.asarray(cylindrical_quantization*0.5*resolution,dtype = np.uint32)
+                   #[int(resolution*cylindrical_quantization[0]),int(resolution*cylindrical_quantization[1])]
+                  )
+        ), dtype=np.float16)
+    #    shape is (number of points, number of a bins, number of b bins)
+    #print(view_invariant_descriptor_cylinders.shape)
+    
+    # N  = len(chosen points), M = len(other pc)
+
+    for i,c_p in enumerate(chosen_points):
+
+        k_ps = other_pc[:,:3] - c_p[:3] # point (vertex) differences; M
+        k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=1)==0)[0],0) # removing itself; M-1
+
+        #if localize:
+        #    k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=1)>local_radius)[0],0)
+
+        # len(theta) = M-1
+        theta = np.arccos(np.clip(np.sum(c_p[3:]*k_ps,axis=1)/(LA.norm(c_p[3:])*LA.norm(k_ps,axis=1)),-1,1))# normal at keypoint
+
+        
+        d_a = cylindrical_quantization[0]*LA.norm(k_ps,axis=1)*np.sin(theta)
+        d_b = np.clip(cylindrical_quantization[1]*0.5*LA.norm(k_ps,axis=1)*np.cos(theta)+cylindrical_quantization[1]*0.5,
+                      0,cylindrical_quantization[1]-1)
+        
+        # removing the points that are outside of the spin region
+        k_ps = np.delete(k_ps,np.where(d_a>=cylindrical_quantization[0]-1)[0],0)
+        d_b = np.delete(d_b,np.where(d_a>=cylindrical_quantization[0]-1)[0],0)
+        d_a = np.delete(d_a,np.where(d_a>=cylindrical_quantization[0]-1)[0],0)
+
+        k_ps = np.delete(k_ps,np.where(d_b>=cylindrical_quantization[1]-1)[0],0)
+        d_a = np.delete(d_a,np.where(d_b>=cylindrical_quantization[1]-1)[0],0)
+        d_b = np.delete(d_b,np.where(d_b>=cylindrical_quantization[1]-1)[0],0)
+        
+        a = np.asarray(np.ceil(np.clip(d_a,0,cylindrical_quantization[0]-1)), dtype = np.uint)
+        b = np.asarray(np.ceil(np.clip(d_b,0,cylindrical_quantization[1]-1)), dtype = np.uint)
+
+        """for k,_ in enumerate(k_ps):
+            
+            if LA.norm(k_ps[k]) == 0:
+                continue
+
+            # skip points that are beyond the scope of the pre-defined descriptor
+            if d_a[k] >= cylindrical_quantization[0]-1 or d_b[k] >= cylindrical_quantization[1]-1:
+                continue
+            if d_a[k]>a[k] or d_b[k]>b[k]:
+                continue
+            diff_a = a[k]-d_a[k]
+            diff_b = b[k]-d_b[k]
+            
+            if diff_a > 1 or diff_b > 1:# or diff_a == 0 or diff_b == 0:
+                continue
+                
+            view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])] += (diff_a)*(diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])] += (1-diff_a)*(diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])-1] += (diff_a)*(1-diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])-1] += (1-diff_a)*(1-diff_b)
+        """
+        # len(diff_*) ≤ M-1; where M = len(other pc)
+        diff_a = a-d_a
+        diff_b = b-d_b
+        
+        submap = np.zeros(
+            (len(diff_a),
+             cylindrical_quantization[0],
+             cylindrical_quantization[1]),
+            dtype=np.float16
+        )
+        
+        submap[np.arange(len(diff_a)),a,b] += (diff_a)*(diff_b)
+        submap[np.arange(len(diff_a)),a-1,b] += (1-diff_a)*(diff_b)
+        submap[np.arange(len(diff_a)),a,b-1] += (diff_a)*(1-diff_b)
+        submap[np.arange(len(diff_a)),a-1,b-1] += (1-diff_a)*(1-diff_b)
+        
+        view_invariant_descriptor_cylinders[i] += np.sum(submap, axis = 0)
+        
+        #view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])] += (diff_a)*(diff_b)
+        #view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])] += (1-diff_a)*(diff_b)
+        #view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])-1] += (diff_a)*(1-diff_b)
+        #view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])-1] += (1-diff_a)*(1-diff_b)        
+        
+    view_invariant_descriptors = []
+
+    for descriptors in view_invariant_descriptor_cylinders:
+        if normalize: # max-normalization
+            if np.amax(descriptors) == 0:
+                pass
+            else:
+                descriptors = descriptors/np.amax(descriptors)
+        view_invariant_descriptors.append(descriptors.flatten('C'))
+
+    t2 = time.time()
+    #print("Time to get spin image descriptors",time.time()-t0)
+        #print(view_invariant_descriptors.shape)
+    """    
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
+        print("  IN Chosen Points after:",chosen_points.shape)
+
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Chosen",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+    """    
+    view_invariant_descriptors = np.asarray(view_invariant_descriptors)
+    
+    if verbose: 
+        print("  desc shape:",view_invariant_descriptor_cylinders.shape, " kp's shape",chosen_points.shape)
+        print("  To get keypoints {:.3f} seconds, to get descriptors {:.3f} seconds".format(t1-t0,t2-t1))
+    
+    return view_invariant_descriptors, chosen_points, view_invariant_descriptor_cylinders, t1-t0, t2- t1
+
+
+# Getting the "spin image" descriptors for a given point cloud    
+def getSpinImageDescriptorsTryTest(_point_cloud,
+                            resolution = 20,
+                            normalize = True,
+                            down_resolution = 3, #keypoint resolution
+                            #localize = False,
+                            local_radius = 1.0,
+                            cylindrical_quantization = [10,20],
+                            verbose = False,
+                            old = False,
+                            key_cap = 50, 
+                            strict_cap = False
+                           ):
+    
+    np_pointCloud = np.asarray(np.copy(_point_cloud))
+    other_pc = np.copy(np_pointCloud)
+    
+    t0 = time.time()
+    
+    if old:
+        chosen_points = OLDgetQuantizedPointCloudOnly(np_pointCloud,down_resolution,verbose=verbose)
+        if verbose: print("Old:",chosen_points.shape)
+    else:
+        chosen_points = getQuantizedPointCloudOnlyTEST(np_pointCloud,down_resolution,verbose=verbose)
+        if verbose: print("New:",chosen_points.shape)
+
+    chosen_points = np.delete(chosen_points,np.where(LA.norm(chosen_points[:,3:],axis=1)== 0)[0],0)
+    
+    t1 = time.time()
+    
+    if strict_cap and len(chosen_points) > key_cap:
+        chosen_points = chosen_points[np.random.choice(len(chosen_points),key_cap)]
+        if verbose: print("Capped chosen points to", key_cap)
+    
+    """
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
+
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Complete",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+                print("  IN Chosen Points before:",chosen_points.shape)
+                #vertical = True
+
+    """
+    
+    view_invariant_descriptor_cylinders = np.zeros(
+        (np.append(len(chosen_points),
+                   np.asarray(cylindrical_quantization)
+                   #np.asarray(cylindrical_quantization*0.5*resolution,dtype = np.uint32)
+                   #[int(resolution*cylindrical_quantization[0]),int(resolution*cylindrical_quantization[1])]
+                  )
+        ), dtype=np.float16)
+    #    shape is (number of points, number of a bins, number of b bins)
+    #print(view_invariant_descriptor_cylinders.shape)
+    
+    #for i,c_p in enumerate(chosen_points):
+
+    k_ps = other_pc[:,np.newaxis,:3] - chosen_points[np.newaxis,:,:3] # point (vertex) differences
+    #k_ps = np.delete(k_ps,np.where(LA.norm(k_ps,axis=-1)==0)[0],0) # removing itself
+    #print("Chosen points:",chosen_points.shape, "Other PC: ", other_pc.shape, "KP shape:",k_ps.shape)
+
+    theta = np.arccos(np.clip(np.sum(chosen_points[np.newaxis,:,:3]*k_ps,axis=-1)/(LA.norm(chosen_points[np.newaxis,:,:3])*LA.norm(k_ps,axis=-1)),-1,1))# normal at keypoint
+    d_a = cylindrical_quantization[0]*LA.norm(k_ps,axis=-1)*np.sin(theta)
+    d_b = np.clip(cylindrical_quantization[1]*0.5*LA.norm(k_ps,axis=-1)*np.cos(theta)+cylindrical_quantization[1]*0.5,
+                  0,cylindrical_quantization[1]-1)
+    
+    #print("Theta:",theta.shape, "D_a", d_a.shape, "D_b", d_b.shape)
+    
+    i_a = np.ceil(d_a)
+    i_b = np.ceil(d_b)
+
+    diff_a = i_a - d_a
+    diff_b = i_b - d_b
+    
+    mult = diff_a*diff_b
+    
+    #print("KP shape:",k_ps.shape, "new _a", diff_a.shape, "new _b", diff_b.shape, "mult shape", mult.shape)
+    
+    """
+            view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])] += (diff_a)*(diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])] += (1-diff_a)*(diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k]),int(b[k])-1] += (diff_a)*(1-diff_b)
+            view_invariant_descriptor_cylinders[i,int(a[k])-1,int(b[k])-1] += (1-diff_a)*(1-diff_b)
+    """
+
+    for k, k_p in enumerate(k_ps):
+
+        submap = np.zeros((len(chosen_points),
+            max(cylindrical_quantization[0]+3,int(max(d_a[k]))),
+            max(cylindrical_quantization[1]+3,int(max(d_b[k])))
+        ))
+
+        a_i = np.clip(np.searchsorted(np.arange(max(cylindrical_quantization[0]+2,int(max(i_a[k])))),i_a[k],side="right")-1,0,cylindrical_quantization[0]+2)
+        b_i = np.clip(np.searchsorted(np.arange(max(cylindrical_quantization[1]+2,int(max(i_b[k])))),i_b[k],side="right")-1,0,cylindrical_quantization[1]+2)
+        a_i_s = np.clip(np.searchsorted(np.arange(max(cylindrical_quantization[0]+2,int(max(i_a[k])))),i_a[k]-1,side="right")-1,0,cylindrical_quantization[0]+2)
+        b_i_s = np.clip(np.searchsorted(np.arange(max(cylindrical_quantization[1]+2,int(max(i_b[k])))),i_b[k]-1,side="right")-1,0,cylindrical_quantization[1]+2)
+
+        submap[np.arange(len(chosen_points)),a_i,b_i] += diff_a[k]*diff_b[k]    
+        submap[np.arange(len(chosen_points)),a_i_s,b_i] += (1-diff_a[k])*diff_b[k]
+        submap[np.arange(len(chosen_points)),a_i,b_i_s] += diff_a[k]*(1-diff_b[k])
+        submap[np.arange(len(chosen_points)),a_i_s,b_i_s] += (1-diff_a[k])*(1-diff_b[k])
+
+        view_invariant_descriptor_cylinders += submap[:,:cylindrical_quantization[0],:cylindrical_quantization[1]]
+
+    view_invariant_descriptors = []
+
+    for descriptors in view_invariant_descriptor_cylinders:
+        if normalize: # max-normalization
+            if np.amax(descriptors) == 0:
+                pass
+            else:
+                descriptors = descriptors/np.amax(descriptors)
+        view_invariant_descriptors.append(descriptors.flatten('C'))
+
+    t2 = time.time()
+    #print("Time to get spin image descriptors",time.time()-t0)
+        #print(view_invariant_descriptors.shape)
+    """    
+    if verbose:
+        unique_normals = np.unique(chosen_points[:,3:],axis=0)
+        print("  IN Chosen Points after:",chosen_points.shape)
+
+        for normal in unique_normals:
+
+            if np.round(np.abs(np.dot(normal,[0,1,0]))) == 0:
+                print("  IN Chosen",object_name,"Vertical",np.abs(np.dot(normal,[0,1,0])),normal,LA.norm(normal,2))
+    """    
+    view_invariant_descriptors = np.asarray(view_invariant_descriptors)
+    
+    if verbose: 
+        print("\n  desc shape:",view_invariant_descriptor_cylinders.shape, " kp's shape",chosen_points.shape)
+        print("  To get keypoints {:.3f} seconds, to get descriptors {:.3f} seconds".format(t1-t0,t2-t1))
+    
+    return view_invariant_descriptors, chosen_points, view_invariant_descriptor_cylinders, t1-t0, t2- t1
+
+
 
 # Getting the "spin image" descriptors for a given point cloud
 # Using the z instead of theta.
