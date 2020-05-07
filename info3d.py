@@ -693,6 +693,146 @@ def getDelaunayTriangles(
 
     return p_triangles
 
+def getRansacPlanes2(
+    pointCloud,
+    #triangles,
+    planes_to_find = 30, # number of planes to find
+    threshold = 0.05,     # the point-plane distance threshold
+    trials = 100,       # the number of RANSAC trials
+    #strict = False
+    #plane_group = 200     # number of nearby points per plane
+    verbose = False
+):
+
+    density = 0
+    
+    """
+    if strict:
+        v1 = pointCloud[triangles[:,0],:3] - pointCloud[triangles[:,1],:3]
+        v2 = pointCloud[triangles[:,2],:3] - pointCloud[triangles[:,1],:3]
+        area = np.abs(LA.norm(np.cross(v1,v2), axis = 1))*0.5
+        density = len(pointCloud)/np.nansum(area)
+    """
+        
+    planeCollection = []
+    test_max = 10
+
+    t0 = time.time()
+
+    planes = []
+    #plane_properties = []
+
+    depletable_pc = np.copy(pointCloud)
+    #print("true points",len(depletable_pc))
+
+    zero_normals = 0
+    added_zero_normals = 0
+    
+    # Getting the planes
+    for i_plane in np.arange(planes_to_find):
+        
+        bestPoints = []
+        trial = 0
+        t1 = time.time()
+
+        if len(depletable_pc) < 3:
+            continue
+            
+        for i_trials in np.arange(trials):
+
+            sample = np.random.randint(len(depletable_pc))
+
+            testPlane = [depletable_pc[sample,:3],depletable_pc[sample,3:]]
+
+            testPoints = []
+            
+            d = -testPlane[0].dot(testPlane[1])
+            """
+            for i, point in enumerate(depletable_pc): #[neighbours[sample]]
+                if LA.norm(testPlane[1])*LA.norm(point[3:]) == 0:
+                    zero_normals += 1
+                    if abs((np.dot(testPlane[1],point[:3])+d)*1.0/LA.norm(testPlane[1],ord = 2)) < threshold:
+                        # only add a point with zero_normal if very close to the plane
+                        added_zero_normals += 1
+                        testPoints.append(i)
+                if abs(np.dot(testPlane[1],point[3:])/(LA.norm(testPlane[1])*LA.norm(point[3:]))) > max(0,(1-20*threshold)):
+                    # if normals are close accept if near to the candidate plane
+                    if abs((np.dot(testPlane[1],point[:3])+d)*1.0/LA.norm(testPlane[1],ord = 2)) < threshold:
+                        testPoints.append(i)            
+            """
+            normal_mags = LA.norm(testPlane[1])*LA.norm(depletable_pc[:,3:], axis = 1)
+            if verbose: print(depletable_pc.shape,normal_mags.shape)
+            
+            distance_from_plane = np.abs(np.dot(depletable_pc[:,:3]+d,testPlane[1])/LA.norm(testPlane[1],ord = 2))
+            
+            normal_inner_prod = np.dot(depletable_pc[:,3:],testPlane[1])/normal_mags
+            if verbose: print(depletable_pc.shape,distance_from_plane.shape,normal_inner_prod.shape)
+            #()
+            # if normals are close accept if near to the candidate plane
+            accepted_normals = np.where(normal_inner_prod > max(0,(1-20*threshold)))[0]
+            
+            accepted_distances = np.where(distance_from_plane < threshold)[0]
+            
+            testPoints = np.intersect1d(accepted_normals, accepted_distances)
+
+            if len(testPoints) < 20:
+                continue
+            if len(testPoints) > len(bestPoints):#plane_group:
+                trial += 1
+                bestPlane = testPlane
+                bestPoints = testPoints
+
+        #print(object_name,i_plane,len(depletable_pc),bestPlane,depletable_pc[sample])
+        #print("Added a ",bestPlane," in",time.time()-t1,"seconds")
+        if trial > 1:
+            d = -bestPlane[0].dot(bestPlane[1])
+
+            PX = depletable_pc[bestPoints][:,0]
+            PY = depletable_pc[bestPoints][:,1]
+            PZ = depletable_pc[bestPoints][:,2]
+            
+            phi = math.fabs(bestPlane[1][1]* 1./LA.norm(bestPlane[1])) # y/r
+            
+            if math.degrees(math.acos(phi)) < 45 : # arc-cos(y/r) = phi < 45 --> horizontal
+                # use floor (plane x-z) as origin mesh
+                NPY = (-bestPlane[1][0] * PX - bestPlane[1][2] * PZ - d) * 1. /bestPlane[1][1]
+                #orientation = 'horizontal'
+                acceptable_move = np.where(np.abs(PY-NPY)<10*threshold)[0]
+                NPY = NPY[acceptable_move]
+                NPX = PX[acceptable_move]
+                NPZ = PZ[acceptable_move]
+            else:
+                #use vertical wall x-y as origin mesh
+                NPZ = (-bestPlane[1][0] * PX - bestPlane[1][1] * PY - d) * 1. /bestPlane[1][2]
+                #orientation = 'vertical'
+                acceptable_move = np.where(np.abs(PZ-NPZ)<10*threshold)[0]
+                NPZ = NPZ[acceptable_move]
+                NPX = PX[acceptable_move]
+                NPY = PY[acceptable_move]
+
+            if len(NPX) == 0:
+                if verbose: print("Emptied after strict acceptable points",PX.shape,NPX.shape)
+                continue
+                
+            # Add final candidate plane to list of planes
+            planes.append([
+                [bestPlane ,phi, density],
+                #np.concatenate((np.stack((PX,PY,PZ)).T,depletable_pc[bestPoints][:,3:6]),axis=1),
+                np.concatenate((np.stack((NPX,NPY,NPZ)).T,np.repeat([bestPlane[1]],len(NPX),axis = 0)),axis=1),
+                depletable_pc[sample]
+            ])
+
+            # Remove points of final plane from remaining candidate points
+            depletable_pc = np.delete(depletable_pc,bestPoints,0)
+
+    #print(len(pointCloud),"points, Time to extract",len(planes),"planes: ", time.time() - t0)
+    #print(len(depletable_pc),"remaining points")
+    #print(zero_normals,"with zero normals")
+    #print(added_zero_normals,"added zero normals")
+    #planeCollection.append([object_name, planes])
+    #plane_properties = np.asarray(plane_properties)
+    return planes
+
 def getRansacPlanesOld(
     pointCloud,
     triangles,
