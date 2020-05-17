@@ -12,7 +12,7 @@ import csv
 
 from sklearn.neighbors import NearestNeighbors, KDTree
 
-base_path= "pointnetvlad_submaps/"
+#base_path= "pointnetvlad_submaps/"
 
 global DATABASE_TREES
 DATABASE_TREES = []
@@ -41,7 +41,10 @@ def get_sets_dict(filename):
 		print("Database Trajectories Loaded.")
 		return trajectories
     
-def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filename):
+def construct_query_and_database_sets(
+    base_path, folders, pointcloud_fols, filename, 
+    CONSTRUCT = False # True if we want to recreate the database sets and trees, False if we only want to open
+):
     
 	global DATABASE_TREES
 	global DATABASE_SETS
@@ -49,15 +52,14 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
 	DATABASE_TREES = []
 	DATABASE_SETS = []
 
-	test_trees=[]
 	for folder in folders:
 		print(folder)
-		df_database= pd.DataFrame(columns=['file','northing','easting','alting','obj'])
+		df_database = pd.DataFrame(columns=['file','northing','easting','alting','obj'])
 		
-		df_locations= pd.read_csv(os.path.join(base_path,folder,filename),sep=',')
+		df_locations = pd.read_csv(os.path.join(base_path,folder,filename),sep=',')
 
 		for index, row in df_locations.iterrows():
-			df_database=df_database.append(row, ignore_index=True)
+			df_database = df_database.append(row, ignore_index=True)
 
 		database_tree = KDTree(df_database[['northing','easting','alting']])
 		DATABASE_TREES.append(database_tree)
@@ -65,25 +67,28 @@ def construct_query_and_database_sets(base_path, folders, pointcloud_fols, filen
 	print("Done getting database trees.")
 
 	test_sets=[]
+	test_trees=[]
+
 	for folder in folders:
-		database={}
-		test={} 
-		df_locations= pd.read_csv(os.path.join(base_path,folder,filename),sep=',')
-		df_locations['timestamp']=folder+pointcloud_fols+df_locations['timestamp'].astype(str)+'.pickle'
-		df_locations=df_locations.rename(columns={'timestamp':'file'})
+		database = {}
+		test = {} 
+		df_locations = pd.read_csv(os.path.join(base_path,folder,filename),sep = ',')
+		df_locations['timestamp'] = folder+pointcloud_fols+df_locations['timestamp'].astype(str)+'.pickle'
+		df_locations = df_locations.rename(columns = {'timestamp':'file'})
 		for index,row in df_locations.iterrows():				
-			database[len(database.keys())]={'query':row['file'],'northing':row['northing'],'easting':row['easting'],'alting':row['alting']}
+			database[len(database.keys())] = {'query':row['file'],'northing':row['northing'],'easting':row['easting'],'alting':row['alting']}
 		DATABASE_SETS.append(database)
 		#if folder not in train_folders:
 		#	test_sets.append(test)
             
 	print("Database (Tree) sets:",len(DATABASE_SETS))    
 
-	output_to_file(DATABASE_SETS, 'pointnetvlad_submaps/3d_evaluation_database.pickle')
+	if CONSTRUCT: 
+		output_to_file(DATABASE_SETS, base_path+'3d_evaluation_database.pickle')
     #'partial_spaces/'+partial_name+'_evaluation_database.pickle')
 
 
-def construct_query_sets(partial_path, pointcloud_fols, filename):#, partial_name):#, p, output_name):
+def construct_query_sets(base_path,partial_path, pointcloud_fols, filename):#, partial_name):#, p, output_name):
 	test_trees=[]
     
 	#for folder in folders:
@@ -128,7 +133,7 @@ def construct_query_sets(partial_path, pointcloud_fols, filename):#, partial_nam
 	#'partial_spaces/'+partial_name+'_evaluation_database.pickle')
 	output_to_file(test_sets, base_path+'3d_{}_evaluation_query.pickle'.format(partial_path))#'partial_spaces/'+partial_name+'_evaluation_query.pickle')
 
-def construct_successive_query_sets(successive_path,partial_path, pointcloud_fols, filename):#, partial_name):#, p, output_name):
+def construct_successive_query_sets(base_path,successive_path,partial_path, pointcloud_fols, filename):#, partial_name):#, p, output_name):
 	test_trees=[]
     
 	#for folder in folders:

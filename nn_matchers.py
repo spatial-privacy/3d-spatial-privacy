@@ -16,7 +16,15 @@ from sklearn.neighbors import NearestNeighbors, KDTree
 
 from info3d import *
 
-def get_score_kdtree(obj_meta, pointcloud, triangles, descriptors, RANSAC = False, strict = False, old = False):
+def get_score_kdtree(
+    obj_meta, 
+    pointcloud, 
+    triangles, 
+    descriptors, 
+    RANSAC = False, 
+    strict = False, 
+    old = False
+):
     
     # ROTATION
     random_theta =  (2*np.pi)*np.random.random()# from [0, 2pi)
@@ -307,6 +315,81 @@ def NN_matcher(partial_scores):
     errors = np.asarray(errors)
         
     return errors
+
+def ARcore_NNMatcher(scores_pool, descriptors):
+
+    t0 = time.time()
+
+    errors = []
+
+    score_map = []
+
+    for obj_meta, diff_ratios, diff_indexs, diff_scores, local_keypoint_matches in scores_pool:
+
+        #obj_meta = scores[0]
+        #diff_ratios = scores[1]
+        #diff_indexs = scores[2]
+
+        diff_nn = diff_indexs[:,:,0]
+
+        scores_per_object = []
+
+        for c_o, c_d in enumerate(diff_ratios.T):
+            nns = diff_nn[:,c_o]
+            unq, unq_ind = np.unique(nns[np.argsort(c_d)], return_index=True)
+            unique_scores = c_d[np.argsort(c_d)][unq_ind]
+
+            scores_per_object.append([
+                len(unique_scores),
+                1-np.nanmean(unique_scores)
+            ])
+
+        scores_per_object = np.asarray(scores_per_object)
+        weighted_scores = np.multiply(scores_per_object[:,1],scores_per_object[:,0]/len(diff_ratios))
+
+        if np.any(np.isnan(weighted_scores)):
+            nan_candidates = np.where(np.isnan(weighted_scores)==True)[0]
+            print(obj_meta,object_labels[nan_candidates],len(diff_ratios))
+            print(scores_per_object[nan_candidates,0],scores_per_object[nan_candidates,1])
+
+        score_map.append(weighted_scores)
+
+        # for ARCore, need to check descriptor match label
+        obj_match = descriptors[np.argmax(weighted_scores)][0][0]
+
+        if obj_meta[0] != obj_match: #!= i_o:
+            errors.append([
+                obj_meta[0], # object meta information
+                1, #correct inter-space label or not
+                np.nan, # distance from correct intra-spae label
+                obj_match,
+                np.argsort(weighted_scores)
+                #np.argmax(weighted_scores)
+            ])
+        else: # Correct inter-space label; then, check intra-space label.
+
+            #diff_scores = scores[3]
+            #local_keypoint_matches = scores[4]
+
+            best_keypointMatches = local_keypoint_matches[np.argmax(weighted_scores)]
+            qry_kp = best_keypointMatches[1]
+            ref_kp = best_keypointMatches[2]
+
+            best_ref_kps, best_qry_kps  = get_best_kp_matches(
+                ref_kp, qry_kp, 
+                diff_ratios[:,np.argmax(weighted_scores)]
+            )
+
+            errors.append([
+                obj_meta[0],
+                0,
+                LA.norm(np.nanmean(best_ref_kps[:,:3], axis = 0) - obj_meta[2][:3]),
+                obj_match,
+                np.argsort(weighted_scores)
+                #np.argmax(weighted_scores)
+            ])
+
+    return np.asarray(errors)
 
 
 def unique_nn_vote_count_with_ratio_scores_3_ForPartials(partial_scores):
