@@ -51,13 +51,13 @@ DATABASE_SETS= get_sets_dict(DATABASE_FILE)
 RESULTS_FOLDER="testing_results/pointnetvlad/"
 if not os.path.exists(RESULTS_FOLDER): os.mkdir(RESULTS_FOLDER) 
     
+global DATABASE_DFS
+DATABASE_DFS = []
+    
 BASE_PATH = 'pointnetvlad_submaps'
 all_folders= ['raw_dataset','ransac_dataset']
 
 print(all_folders)
-
-global DATABASE_DFS
-DATABASE_DFS = []
 
 for folder in ['raw_dataset','ransac_dataset']:
     
@@ -294,6 +294,7 @@ def get_recall(sess, ops, m, n, query_sets, query_db_np):
                 break
                 
         top1_obj_candidate.append([
+            query_db_np[i,1:-1],
             query_db_np[i,-1], # actual obj label
             database_numpy[indices[0][0],-1], # top candidate obj label
         ])
