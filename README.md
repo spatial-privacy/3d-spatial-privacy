@@ -36,6 +36,43 @@ An e-print of this work is available [here](https://arxiv.org/abs/2004.08029):
     primaryClass={cs.CV}
 }
 ```
+While a subsequent published work is available [here](https://doi.org/10.1145/3448103)"
+```
+@article{10.1145/3448103,
+author = {Guzman, Jaybie Agullo de and Seneviratne, Aruna and Thilakarathna, Kanchana},
+title = {Unravelling Spatial Privacy Risks of Mobile Mixed Reality Data},
+year = {2021},
+issue_date = {March 2021},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {5},
+number = {1},
+url = {https://doi.org/10.1145/3448103},
+doi = {10.1145/3448103},
+abstract = {Previously, 3D data---particularly, spatial data---have primarily been utilized in
+the field of geo-spatial analyses, or robot navigation (e.g. self-automated cars)
+as 3D representations of geographical or terrain data (usually extracted from lidar).
+Now, with the increasing user adoption of augmented, mixed, and virtual reality (AR/MR/VR;
+we collectively refer to as MR) technology on user mobile devices, spatial data has
+become more ubiquitous. However, this ubiquity also opens up a new threat vector for
+adversaries: aside from the traditional forms of mobile media such as images and video,
+spatial data poses additional and, potentially, latent risks to users of AR/MR/VR.
+Thus, in this work, we analyse MR spatial data using various spatial complexity metrics---including
+a cosine similarity-based, and a Euclidean distance-based metric---as heuristic or
+empirical measures that can signify the inference risk a captured space has. To demonstrate
+the risk, we utilise 3D shape recognition and classification algorithms for spatial
+inference attacks over various 3D spatial data captured using mobile MR platforms:
+i.e. Microsoft HoloLens, and Android with Google ARCore. Our experimental evaluation
+and investigation shows that the cosine similarity-based metric is a good spatial
+complexity measure of captured 3D spatial maps and can be utilised as an indicator
+of spatial inference risk.},
+journal = {Proc. ACM Interact. Mob. Wearable Ubiquitous Technol.},
+month = mar,
+articleno = {14},
+numpages = {26},
+keywords = {object detection, and resource sharing, mixed or augmented reality, privacy}
+}
+```
 
 # SAMPLE CODE
 
